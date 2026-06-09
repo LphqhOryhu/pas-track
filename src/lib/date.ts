@@ -26,3 +26,11 @@ export function periodStartISO(period: LeaderboardPeriod): string {
 
   return start.toISOString().split('T')[0]
 }
+
+/** Formate une date ISO en libellé jour, ex. "Vendredi 9". */
+export function formatDayLabel(iso: string): string {
+  const [year, month, day] = iso.split('-').map(Number)
+  const date = new Date(year, month - 1, day)
+  const label = date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric' })
+  return label.charAt(0).toUpperCase() + label.slice(1)
+}

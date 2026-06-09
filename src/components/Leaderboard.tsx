@@ -15,6 +15,13 @@ interface Props {
   refreshToken: number
 }
 
+const rankStyle = (rank: number) => {
+  if (rank === 0) return 'bg-amber-400 text-white'
+  if (rank === 1) return 'bg-slate-400 text-white'
+  if (rank === 2) return 'bg-orange-400 text-white'
+  return 'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-300'
+}
+
 export default function Leaderboard({ currentUserId, refreshToken }: Props) {
   const [period, setPeriod] = useState<LeaderboardPeriod>('daily')
   const [rows, setRows] = useState<LeaderboardRow[]>([])
@@ -60,22 +67,19 @@ export default function Leaderboard({ currentUserId, refreshToken }: Props) {
     fetchLeaderboard()
   }, [fetchLeaderboard, refreshToken])
 
-  const rankLabel = (rank: number) =>
-    rank === 0 ? '🥇' : rank === 1 ? '🥈' : rank === 2 ? '🥉' : `${rank + 1}.`
-
   return (
-    <section>
-      <h2 className="text-lg font-bold mb-3">Classement</h2>
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <h2 className="mb-4 text-lg font-semibold text-slate-800 dark:text-slate-100">Classement</h2>
 
-      <div className="flex gap-2 mb-4">
+      <div className="mb-5 inline-flex rounded-lg bg-slate-100 p-1 dark:bg-slate-800">
         {PERIODS.map((p) => (
           <button
             key={p.value}
             onClick={() => setPeriod(p.value)}
-            className={`px-3 py-1 rounded text-sm transition-colors ${
+            className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
               period === p.value
-                ? 'bg-blue-500 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-white'
+                : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
             }`}
           >
             {p.label}
@@ -83,27 +87,34 @@ export default function Leaderboard({ currentUserId, refreshToken }: Props) {
         ))}
       </div>
 
-      {error && <p className="text-red-500 text-sm mb-3">{error}</p>}
+      {error && <p className="mb-3 text-sm text-red-500">{error}</p>}
 
       {loading ? (
-        <p className="text-gray-400 text-sm">Chargement…</p>
+        <p className="text-sm text-slate-400">Chargement…</p>
       ) : rows.length === 0 ? (
-        <p className="text-gray-400 text-sm">Aucune donnée sur cette période.</p>
+        <p className="text-sm text-slate-400">Aucune donnée sur cette période.</p>
       ) : (
         <ul className="space-y-2">
           {rows.map((row, i) => (
             <li
               key={row.userId}
-              className={`flex justify-between items-center border rounded px-3 py-2 ${
-                row.userId === currentUserId ? 'border-blue-500 bg-blue-50' : ''
+              className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-colors ${
+                row.userId === currentUserId
+                  ? 'border-blue-300 bg-blue-50 dark:border-blue-500/40 dark:bg-blue-500/10'
+                  : 'border-slate-100 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-800/40'
               }`}
             >
-              <span className="flex items-center gap-2">
-                <span className="w-6 text-center">{rankLabel(i)}</span>
-                <span className="font-medium">{row.username}</span>
+              <span
+                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold ${rankStyle(i)}`}
+              >
+                {i + 1}
               </span>
-              <span className="font-bold">
-                {row.total.toLocaleString('fr-FR')} pas
+              <span className="flex-1 truncate font-medium text-slate-700 dark:text-slate-200">
+                {row.username}
+              </span>
+              <span className="font-semibold text-slate-900 dark:text-white">
+                {row.total.toLocaleString('fr-FR')}
+                <span className="ml-1 text-sm font-normal text-slate-400">pas</span>
               </span>
             </li>
           ))}

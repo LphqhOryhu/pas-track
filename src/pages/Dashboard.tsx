@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { todayISO } from '../lib/date'
+import { todayISO, formatDayLabel } from '../lib/date'
 import type { StepEntry } from '../lib/types'
 import Leaderboard from '../components/Leaderboard'
 
@@ -70,56 +70,53 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="p-4 max-w-md mx-auto">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">Mes pas</h1>
-        <button
-          onClick={() => supabase.auth.signOut()}
-          className="text-sm text-gray-500"
-        >
-          Déconnexion
-        </button>
-      </div>
+    <div className="mx-auto max-w-md px-4 py-8">
+      <h1 className="mb-6 text-2xl font-bold text-slate-900 dark:text-white">Mes pas</h1>
 
-      <div className="flex gap-2 mb-2">
+      <div className="mb-2 flex gap-2">
         <input
           type="number"
           min="0"
           value={steps}
           onChange={(e) => setSteps(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && saveSteps()}
-          className="border rounded px-3 py-2 w-full"
+          className="no-spinner w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-blue-400 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
           placeholder="Nombre de pas aujourd'hui"
         />
         <button
           onClick={saveSteps}
-          className="bg-blue-500 text-white px-4 py-2 rounded"
+          className="rounded-xl bg-blue-500 px-5 py-2.5 font-medium text-white transition-colors hover:bg-blue-600"
         >
           Sauver
         </button>
       </div>
 
-      {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
+      {error && <p className="mb-4 text-sm text-red-500">{error}</p>}
 
-      <div className="mb-8">
+      <div className="mb-8 mt-6">
         <Leaderboard currentUserId={userId} refreshToken={refreshToken} />
       </div>
 
-      <h2 className="text-lg font-bold mb-3">Mon historique</h2>
+      <h2 className="mb-3 text-lg font-semibold text-slate-800 dark:text-slate-100">
+        Mon historique
+      </h2>
       <ul className="space-y-2">
         {entries.length === 0 && (
-          <li className="text-gray-400 text-sm">Aucune donnée pour le moment.</li>
+          <li className="text-sm text-slate-400">Aucune donnée pour le moment.</li>
         )}
         {entries.map((entry) => (
           <li
             key={entry.id}
-            className="flex justify-between items-center border rounded px-3 py-2"
+            className="flex items-center justify-between rounded-xl border border-slate-100 bg-white px-4 py-2.5 dark:border-slate-800 dark:bg-slate-900"
           >
-            <span>{entry.date}</span>
-            <span className="font-bold">{entry.count} pas</span>
+            <span className="text-slate-600 dark:text-slate-300">{formatDayLabel(entry.date)}</span>
+            <span className="font-semibold text-slate-900 dark:text-white">
+              {entry.count.toLocaleString('fr-FR')}
+              <span className="ml-1 text-sm font-normal text-slate-400">pas</span>
+            </span>
             <button
               onClick={() => deleteEntry(entry.id)}
-              className="text-red-400 text-sm"
+              className="text-sm text-slate-300 transition-colors hover:text-red-400 dark:text-slate-600"
             >
               Supprimer
             </button>
