@@ -1,50 +1,66 @@
-# React + TypeScript + Vite
+# Pas Tracker
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Petite application web pour suivre son nombre de pas quotidiens.
+Authentification par pseudo et historique des 7 derniers jours, propulsés par Supabase.
 
-Currently, two official plugins are available:
+## Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- React 18 + TypeScript
+- Vite
+- Tailwind CSS v4
+- Supabase (auth + base de données)
 
-## Expanding the ESLint configuration
+## Démarrage
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+1. Installer les dépendances :
 
-- Configure the top-level `parserOptions` property like this:
+   ```bash
+   npm install
+   ```
 
-```js
-export default tseslint.config({
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+2. Copier `.env.example` vers `.env` et renseigner les clés de votre projet Supabase :
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   ```
+   VITE_SUPABASE_URL=https://your-project.supabase.co
+   VITE_SUPABASE_ANON_KEY=your-anon-key
+   ```
+
+3. Lancer le serveur de dev :
+
+   ```bash
+   npm run dev
+   ```
+
+## Schéma Supabase
+
+L'application attend deux tables :
+
+```sql
+create table profiles (
+  id uuid primary key references auth.users on delete cascade,
+  username text not null unique
+);
+
+create table steps (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users on delete cascade,
+  date date not null,
+  count integer not null check (count >= 0),
+  unique (user_id, date)
+);
 ```
 
-- Replace `tseslint.configs.recommended` to `tseslint.configs.recommendedTypeChecked` or `tseslint.configs.strictTypeChecked`
-- Optionally add `...tseslint.configs.stylisticTypeChecked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and update the config:
+> **Important :** activez la Row Level Security (RLS) sur ces tables et ajoutez
+> des policies restreignant chaque ligne à `auth.uid() = user_id` (et `= id` pour
+> `profiles`). C'est la RLS qui garantit qu'un utilisateur ne voit que ses propres données.
 
-```js
-// eslint.config.js
-import react from 'eslint-plugin-react'
+## Scripts
 
-export default tseslint.config({
-  // Set the react version
-  settings: { react: { version: '18.3' } },
-  plugins: {
-    // Add the react plugin
-    react,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended rules
-    ...react.configs.recommended.rules,
-    ...react.configs['jsx-runtime'].rules,
-  },
-})
-```
+- `npm run dev` — serveur de développement
+- `npm run build` — build de production
+- `npm run preview` — prévisualisation du build
+- `npm run lint` — ESLint
