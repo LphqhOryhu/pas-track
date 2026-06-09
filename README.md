@@ -54,9 +54,41 @@ create table steps (
 );
 ```
 
-> **Important :** activez la Row Level Security (RLS) sur ces tables et ajoutez
-> des policies restreignant chaque ligne à `auth.uid() = user_id` (et `= id` pour
-> `profiles`). C'est la RLS qui garantit qu'un utilisateur ne voit que ses propres données.
+### Row Level Security (RLS)
+
+Le classement est multi-utilisateurs : chaque personne doit pouvoir **lire** les pas
+et les pseudos de tout le monde, mais ne **modifier que ses propres lignes**.
+Activez la RLS et ajoutez ces policies :
+
+```sql
+-- STEPS : lecture publique (classement), écriture limitée à ses lignes
+alter table steps enable row level security;
+
+create policy "steps_select_all" on steps
+  for select to authenticated using (true);
+
+create policy "steps_insert_own" on steps
+  for insert to authenticated with check (auth.uid() = user_id);
+
+create policy "steps_update_own" on steps
+  for update to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create policy "steps_delete_own" on steps
+  for delete to authenticated using (auth.uid() = user_id);
+
+-- PROFILES : pseudos lisibles par tous, chacun crée le sien
+alter table profiles enable row level security;
+
+create policy "profiles_select_all" on profiles
+  for select to authenticated using (true);
+
+create policy "profiles_insert_own" on profiles
+  for insert to authenticated with check (auth.uid() = id);
+```
+
+> Les pas et pseudos deviennent visibles par tous les utilisateurs connectés
+> (c'est nécessaire pour le classement). Aucune donnée n'est exposée publiquement
+> sans authentification.
 
 ## Scripts
 

@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { todayISO } from '../lib/date'
 import type { StepEntry } from '../lib/types'
+import Leaderboard from '../components/Leaderboard'
 
 export default function Dashboard() {
   const [steps, setSteps] = useState('')
   const [entries, setEntries] = useState<StepEntry[]>([])
   const [userId, setUserId] = useState('')
   const [error, setError] = useState('')
+  const [refreshToken, setRefreshToken] = useState(0)
 
   const fetchSteps = useCallback(async (uid: string) => {
     const { data, error: fetchError } = await supabase
@@ -42,10 +45,9 @@ export default function Dashboard() {
       return
     }
 
-    const today = new Date().toISOString().split('T')[0]
     const { error: saveError } = await supabase
       .from('steps')
-      .upsert({ user_id: userId, date: today, count }, { onConflict: 'user_id,date' })
+      .upsert({ user_id: userId, date: todayISO(), count }, { onConflict: 'user_id,date' })
 
     if (saveError) {
       setError(saveError.message)
@@ -53,6 +55,7 @@ export default function Dashboard() {
     }
     setSteps('')
     await fetchSteps(userId)
+    setRefreshToken((t) => t + 1)
   }
 
   const deleteEntry = async (id: string) => {
@@ -63,6 +66,7 @@ export default function Dashboard() {
       return
     }
     await fetchSteps(userId)
+    setRefreshToken((t) => t + 1)
   }
 
   return (
@@ -97,7 +101,12 @@ export default function Dashboard() {
 
       {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
 
-      <ul className="space-y-2 mt-4">
+      <div className="mb-8">
+        <Leaderboard currentUserId={userId} refreshToken={refreshToken} />
+      </div>
+
+      <h2 className="text-lg font-bold mb-3">Mon historique</h2>
+      <ul className="space-y-2">
         {entries.length === 0 && (
           <li className="text-gray-400 text-sm">Aucune donnée pour le moment.</li>
         )}

@@ -9,3 +9,11 @@ export interface Profile {
   id: string
   username: string
 }
+
+export type LeaderboardPeriod = 'daily' | 'weekly' | 'monthly'
+
+export interface LeaderboardRow {
+  userId: string
+  username: string
+  total: number
+}
