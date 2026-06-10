@@ -18,6 +18,8 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [isAdmin, setIsAdmin] = useState(false)
   const [view, setView] = useState<View>('home')
+  const [viewedUserId, setViewedUserId] = useState('')
+  const [profileHasBack, setProfileHasBack] = useState(false)
   const [theme, setTheme] = useState<Theme>(initialTheme)
 
   useEffect(() => {
@@ -54,13 +56,40 @@ export default function App() {
 
   const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))
 
+  const ownId = session?.user.id ?? ''
+
+  // Navigation depuis le header : "Profil" ouvre toujours son propre profil.
+  const handleNavigate = (next: View) => {
+    if (next === 'profile') {
+      setViewedUserId(ownId)
+      setProfileHasBack(false)
+    }
+    setView(next)
+  }
+
+  // Clic sur un utilisateur dans le classement : ouvre son profil avec retour.
+  const viewUser = (id: string) => {
+    setViewedUserId(id)
+    setProfileHasBack(true)
+    setView('profile')
+  }
+
   if (loading) return null
 
   const renderContent = () => {
     if (!session) return <Login />
-    if (view === 'profile') return <Profile userId={session.user.id} />
+    if (view === 'profile') {
+      const targetId = viewedUserId || ownId
+      return (
+        <Profile
+          userId={targetId}
+          editable={targetId === ownId}
+          onBack={profileHasBack ? () => setView('home') : undefined}
+        />
+      )
+    }
     if (view === 'management' && isAdmin) return <Management />
-    return <Dashboard />
+    return <Dashboard onViewUser={viewUser} />
   }
 
   return (
@@ -71,7 +100,7 @@ export default function App() {
         theme={theme}
         onToggleTheme={toggleTheme}
         view={view}
-        onNavigate={setView}
+        onNavigate={handleNavigate}
       />
       {renderContent()}
     </div>

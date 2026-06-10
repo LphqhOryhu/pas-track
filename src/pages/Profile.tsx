@@ -14,7 +14,13 @@ function StatCard({ label, value }: { label: string; value: string }) {
   )
 }
 
-export default function Profile({ userId }: { userId: string }) {
+interface Props {
+  userId: string
+  editable: boolean
+  onBack?: () => void
+}
+
+export default function Profile({ userId, editable, onBack }: Props) {
   const [username, setUsername] = useState('')
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [stats, setStats] = useState<ProfileStats | null>(null)
@@ -27,6 +33,7 @@ export default function Profile({ userId }: { userId: string }) {
 
   useEffect(() => {
     const load = async () => {
+      setLoading(true)
       const [profileRes, stepsRes] = await Promise.all([
         supabase.from('profiles').select('username, avatar_url').eq('id', userId).single(),
         supabase.from('steps').select('user_id, date, count'),
@@ -102,28 +109,40 @@ export default function Profile({ userId }: { userId: string }) {
       setError(updateError.message)
       return
     }
-    // Cache-busting pour afficher tout de suite la nouvelle image
     setAvatarUrl(`${publicUrl}?t=${Date.now()}`)
     setMessage('Photo mise à jour')
   }
 
   const wrap = 'mx-auto max-w-md px-4 py-8'
-
   if (loading) return <p className={`${wrap} text-sm text-slate-400`}>Chargement…</p>
 
   return (
     <div className={wrap}>
-      <h1 className="mb-6 text-2xl font-bold text-slate-900 dark:text-white">Mon profil</h1>
+      {onBack && (
+        <button
+          onClick={onBack}
+          className="mb-4 inline-flex items-center gap-1 text-sm font-medium text-slate-500 transition-colors hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 18l-6-6 6-6" />
+          </svg>
+          Retour
+        </button>
+      )}
 
       <div className="mb-6 flex flex-col items-center">
         <Avatar url={avatarUrl} name={username} className="h-24 w-24 text-3xl" />
-        <button
-          onClick={() => fileRef.current?.click()}
-          disabled={uploading}
-          className="mt-3 text-sm font-medium text-blue-500 transition-colors hover:text-blue-600 disabled:opacity-50"
-        >
-          {uploading ? 'Envoi…' : 'Changer la photo'}
-        </button>
+        {editable ? (
+          <button
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading}
+            className="mt-3 text-sm font-medium text-blue-500 transition-colors hover:text-blue-600 disabled:opacity-50"
+          >
+            {uploading ? 'Envoi…' : 'Changer la photo'}
+          </button>
+        ) : (
+          <p className="mt-3 text-xl font-bold text-slate-900 dark:text-white">{username}</p>
+        )}
         <input
           ref={fileRef}
           type="file"
@@ -133,25 +152,28 @@ export default function Profile({ userId }: { userId: string }) {
         />
       </div>
 
-      <label className="mb-1 block text-sm text-slate-500 dark:text-slate-400">Pseudo</label>
-      <div className="flex gap-2">
-        <input
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && saveUsername()}
-          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-blue-400 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-        />
-        <button
-          onClick={saveUsername}
-          disabled={saving}
-          className="shrink-0 rounded-xl bg-blue-500 px-4 py-2.5 font-medium text-white transition-colors hover:bg-blue-600 disabled:opacity-50"
-        >
-          Enregistrer
-        </button>
-      </div>
-
-      {message && <p className="mt-3 text-sm text-green-600 dark:text-green-400">{message}</p>}
-      {error && <p className="mt-3 text-sm text-red-500">{error}</p>}
+      {editable && (
+        <>
+          <label className="mb-1 block text-sm text-slate-500 dark:text-slate-400">Pseudo</label>
+          <div className="flex gap-2">
+            <input
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && saveUsername()}
+              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-blue-400 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+            />
+            <button
+              onClick={saveUsername}
+              disabled={saving}
+              className="shrink-0 rounded-xl bg-blue-500 px-4 py-2.5 font-medium text-white transition-colors hover:bg-blue-600 disabled:opacity-50"
+            >
+              Enregistrer
+            </button>
+          </div>
+          {message && <p className="mt-3 text-sm text-green-600 dark:text-green-400">{message}</p>}
+          {error && <p className="mt-3 text-sm text-red-500">{error}</p>}
+        </>
+      )}
 
       {stats && (
         <>

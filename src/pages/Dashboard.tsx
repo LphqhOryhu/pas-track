@@ -4,7 +4,7 @@ import { todayISO, formatDayLabel } from '../lib/date'
 import type { StepEntry } from '../lib/types'
 import Leaderboard from '../components/Leaderboard'
 
-export default function Dashboard() {
+export default function Dashboard({ onViewUser }: { onViewUser: (userId: string) => void }) {
   const [steps, setSteps] = useState('')
   const [entries, setEntries] = useState<StepEntry[]>([])
   const [userId, setUserId] = useState('')
@@ -94,7 +94,7 @@ export default function Dashboard() {
       {error && <p className="mb-4 text-sm text-red-500">{error}</p>}
 
       <div className="mb-8 mt-6">
-        <Leaderboard currentUserId={userId} refreshToken={refreshToken} />
+        <Leaderboard currentUserId={userId} refreshToken={refreshToken} onViewUser={onViewUser} />
       </div>
 
       <h2 className="mb-3 text-lg font-semibold text-slate-800 dark:text-slate-100">

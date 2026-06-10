@@ -14,16 +14,18 @@ interface Props {
   currentUserId: string
   /** Incrémenté par le parent pour forcer un rafraîchissement après une saisie. */
   refreshToken: number
+  onViewUser: (userId: string) => void
 }
 
-const rankStyle = (rank: number) => {
-  if (rank === 0) return 'bg-amber-400 text-white'
-  if (rank === 1) return 'bg-slate-400 text-white'
-  if (rank === 2) return 'bg-orange-400 text-white'
-  return 'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-300'
+/** Bordure podium pour le top 3, bordure neutre ensuite. */
+const borderStyle = (rank: number) => {
+  if (rank === 0) return 'border-2 border-amber-400'
+  if (rank === 1) return 'border-2 border-slate-400'
+  if (rank === 2) return 'border-2 border-orange-400'
+  return 'border border-slate-100 dark:border-slate-800'
 }
 
-export default function Leaderboard({ currentUserId, refreshToken }: Props) {
+export default function Leaderboard({ currentUserId, refreshToken, onViewUser }: Props) {
   const [period, setPeriod] = useState<LeaderboardPeriod>('daily')
   const [rows, setRows] = useState<LeaderboardRow[]>([])
   const [error, setError] = useState('')
@@ -98,27 +100,24 @@ export default function Leaderboard({ currentUserId, refreshToken }: Props) {
       ) : (
         <ul className="space-y-2">
           {rows.map((row, i) => (
-            <li
-              key={row.userId}
-              className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-colors ${
-                row.userId === currentUserId
-                  ? 'border-blue-300 bg-blue-50 dark:border-blue-500/40 dark:bg-blue-500/10'
-                  : 'border-slate-100 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-800/40'
-              }`}
-            >
-              <span
-                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold ${rankStyle(i)}`}
+            <li key={row.userId}>
+              <button
+                onClick={() => onViewUser(row.userId)}
+                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${borderStyle(i)} ${
+                  row.userId === currentUserId
+                    ? 'bg-blue-50 dark:bg-blue-500/10'
+                    : 'bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800/60'
+                }`}
               >
-                {i + 1}
-              </span>
-              <Avatar url={row.avatarUrl} name={row.username} className="h-8 w-8 text-xs" />
-              <span className="flex-1 truncate font-medium text-slate-700 dark:text-slate-200">
-                {row.username}
-              </span>
-              <span className="font-semibold text-slate-900 dark:text-white">
-                {row.total.toLocaleString('fr-FR')}
-                <span className="ml-1 text-sm font-normal text-slate-400">pas</span>
-              </span>
+                <Avatar url={row.avatarUrl} name={row.username} className="h-8 w-8 text-xs" />
+                <span className="flex-1 truncate font-medium text-slate-700 dark:text-slate-200">
+                  {row.username}
+                </span>
+                <span className="font-semibold text-slate-900 dark:text-white">
+                  {row.total.toLocaleString('fr-FR')}
+                  <span className="ml-1 text-sm font-normal text-slate-400">pas</span>
+                </span>
+              </button>
             </li>
           ))}
         </ul>
