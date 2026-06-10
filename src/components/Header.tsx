@@ -1,11 +1,13 @@
+import type { ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 
-export type View = 'home' | 'profile'
+export type View = 'home' | 'profile' | 'management'
 export type Theme = 'light' | 'dark'
 
 interface Props {
   session: Session | null
+  isAdmin: boolean
   theme: Theme
   onToggleTheme: () => void
   view: View
@@ -14,20 +16,48 @@ interface Props {
 
 function ThemeIcon({ theme }: { theme: Theme }) {
   return theme === 'dark' ? (
-    // Soleil
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
       <circle cx="12" cy="12" r="4" />
       <path strokeLinecap="round" d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
     </svg>
   ) : (
-    // Lune
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
       <path strokeLinecap="round" strokeLinejoin="round" d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
     </svg>
   )
 }
 
-export default function Header({ session, theme, onToggleTheme, view, onNavigate }: Props) {
+function NavButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean
+  onClick: () => void
+  children: ReactNode
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+        active
+          ? 'bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300'
+          : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'
+      }`}
+    >
+      {children}
+    </button>
+  )
+}
+
+export default function Header({
+  session,
+  isAdmin,
+  theme,
+  onToggleTheme,
+  view,
+  onNavigate,
+}: Props) {
   return (
     <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/80 pt-[env(safe-area-inset-top)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/80">
       <div className="flex items-center justify-between px-6 py-3">
@@ -53,12 +83,14 @@ export default function Header({ session, theme, onToggleTheme, view, onNavigate
 
           {session && (
             <>
-              <button
-                onClick={() => onNavigate(view === 'profile' ? 'home' : 'profile')}
-                className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-              >
-                {view === 'profile' ? 'Accueil' : 'Profil'}
-              </button>
+              <NavButton active={view === 'profile'} onClick={() => onNavigate('profile')}>
+                Profil
+              </NavButton>
+              {isAdmin && (
+                <NavButton active={view === 'management'} onClick={() => onNavigate('management')}>
+                  Gestion
+                </NavButton>
+              )}
               <button
                 onClick={() => supabase.auth.signOut()}
                 className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"

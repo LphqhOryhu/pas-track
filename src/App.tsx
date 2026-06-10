@@ -4,6 +4,7 @@ import { supabase } from './lib/supabase'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Profile from './pages/Profile'
+import Management from './pages/Management'
 import Header, { type Theme, type View } from './components/Header'
 
 function initialTheme(): Theme {
@@ -15,6 +16,7 @@ function initialTheme(): Theme {
 export default function App() {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [view, setView] = useState<View>('home')
   const [theme, setTheme] = useState<Theme>(initialTheme)
 
@@ -37,27 +39,41 @@ export default function App() {
     return () => subscription.subscription.unsubscribe()
   }, [])
 
+  useEffect(() => {
+    if (!session) {
+      setIsAdmin(false)
+      return
+    }
+    supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', session.user.id)
+      .single()
+      .then(({ data }) => setIsAdmin(data?.role === 'admin'))
+  }, [session])
+
   const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))
 
   if (loading) return null
+
+  const renderContent = () => {
+    if (!session) return <Login />
+    if (view === 'profile') return <Profile userId={session.user.id} />
+    if (view === 'management' && isAdmin) return <Management />
+    return <Dashboard />
+  }
 
   return (
     <div className="min-h-screen">
       <Header
         session={session}
+        isAdmin={isAdmin}
         theme={theme}
         onToggleTheme={toggleTheme}
         view={view}
         onNavigate={setView}
       />
-
-      {!session ? (
-        <Login />
-      ) : view === 'profile' ? (
-        <Profile userId={session.user.id} />
-      ) : (
-        <Dashboard />
-      )}
+      {renderContent()}
     </div>
   )
 }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { periodStartISO } from '../lib/date'
 import type { LeaderboardPeriod, LeaderboardRow } from '../lib/types'
+import Avatar from './Avatar'
 
 const PERIODS: { value: LeaderboardPeriod; label: string }[] = [
   { value: 'daily', label: 'Quotidien' },
@@ -35,7 +36,7 @@ export default function Leaderboard({ currentUserId, refreshToken }: Props) {
     const start = periodStartISO(period)
     const [stepsRes, profilesRes] = await Promise.all([
       supabase.from('steps').select('user_id, count').gte('date', start),
-      supabase.from('profiles').select('id, username'),
+      supabase.from('profiles').select('id, username, avatar_url'),
     ])
 
     if (stepsRes.error || profilesRes.error) {
@@ -49,12 +50,13 @@ export default function Leaderboard({ currentUserId, refreshToken }: Props) {
       totals.set(row.user_id, (totals.get(row.user_id) ?? 0) + row.count)
     }
 
-    const nameById = new Map((profilesRes.data ?? []).map((p) => [p.id, p.username]))
+    const profileById = new Map((profilesRes.data ?? []).map((p) => [p.id, p]))
 
     const ranked = [...totals.entries()]
       .map(([userId, total]) => ({
         userId,
-        username: nameById.get(userId) ?? 'Anonyme',
+        username: profileById.get(userId)?.username ?? 'Anonyme',
+        avatarUrl: profileById.get(userId)?.avatar_url ?? null,
         total,
       }))
       .sort((a, b) => b.total - a.total)
@@ -109,6 +111,7 @@ export default function Leaderboard({ currentUserId, refreshToken }: Props) {
               >
                 {i + 1}
               </span>
+              <Avatar url={row.avatarUrl} name={row.username} className="h-8 w-8 text-xs" />
               <span className="flex-1 truncate font-medium text-slate-700 dark:text-slate-200">
                 {row.username}
               </span>
