@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import QuestsMenu from './QuestsMenu'
@@ -31,19 +31,27 @@ function ThemeIcon({ theme }: { theme: Theme }) {
   )
 }
 
-function NavButton({
+function MenuIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
+      <path strokeLinecap="round" d="M4 6h16M4 12h16M4 18h16" />
+    </svg>
+  )
+}
+
+function MenuItem({
   active,
   onClick,
   children,
 }: {
-  active: boolean
+  active?: boolean
   onClick: () => void
   children: ReactNode
 }) {
   return (
     <button
       onClick={onClick}
-      className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+      className={`w-full rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors ${
         active
           ? 'bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300'
           : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'
@@ -65,9 +73,16 @@ export default function Header({
   view,
   onNavigate,
 }: Props) {
+  const [menuOpen, setMenuOpen] = useState(false)
+
+  const go = (next: View) => {
+    onNavigate(next)
+    setMenuOpen(false)
+  }
+
   return (
     <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/80 pt-[env(safe-area-inset-top)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/80">
-      <div className="flex items-center justify-between px-6 py-3">
+      <div className="flex items-center justify-between px-4 py-3">
         <button
           onClick={() => session && onNavigate('home')}
           className="flex items-center gap-2 text-lg font-extrabold tracking-tight"
@@ -88,6 +103,7 @@ export default function Header({
               onCoinsChange={onCoinsChange}
             />
           )}
+
           <button
             onClick={onToggleTheme}
             aria-label="Changer de thème"
@@ -97,25 +113,47 @@ export default function Header({
           </button>
 
           {session && (
-            <>
-              <NavButton active={view === 'profile'} onClick={() => onNavigate('profile')}>
-                Profil
-              </NavButton>
-              <NavButton active={view === 'shop'} onClick={() => onNavigate('shop')}>
-                Boutique
-              </NavButton>
-              {isAdmin && (
-                <NavButton active={view === 'management'} onClick={() => onNavigate('management')}>
-                  Gestion
-                </NavButton>
-              )}
+            <div className="relative">
               <button
-                onClick={() => supabase.auth.signOut()}
-                className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                onClick={() => setMenuOpen((o) => !o)}
+                aria-label="Menu"
+                className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
               >
-                Déconnexion
+                <MenuIcon />
               </button>
-            </>
+
+              {menuOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
+                  <div className="absolute right-0 z-20 mt-2 w-44 rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900">
+                    <MenuItem active={view === 'home'} onClick={() => go('home')}>
+                      Accueil
+                    </MenuItem>
+                    <MenuItem active={view === 'profile'} onClick={() => go('profile')}>
+                      Profil
+                    </MenuItem>
+                    <MenuItem active={view === 'shop'} onClick={() => go('shop')}>
+                      Boutique
+                    </MenuItem>
+                    {isAdmin && (
+                      <MenuItem active={view === 'management'} onClick={() => go('management')}>
+                        Gestion
+                      </MenuItem>
+                    )}
+                    <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
+                    <button
+                      onClick={() => {
+                        setMenuOpen(false)
+                        supabase.auth.signOut()
+                      }}
+                      className="w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-500/10"
+                    >
+                      Déconnexion
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           )}
         </div>
       </div>
