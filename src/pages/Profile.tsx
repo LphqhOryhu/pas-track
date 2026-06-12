@@ -1,7 +1,16 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { supabase } from '../lib/supabase'
 import { computeProfileStats, type ProfileStats } from '../lib/stats'
+import {
+  COSMETIC_LABELS,
+  COSMETIC_ORDER,
+  usernameStyle,
+  type Cosmetics,
+  type CosmeticType,
+  type ShopItem,
+} from '../lib/cosmetics'
 import Avatar from '../components/Avatar'
+import ItemPreview from '../components/ItemPreview'
 
 const MARATHON_KM = 42.195
 
@@ -23,6 +32,14 @@ interface Props {
 export default function Profile({ userId, editable, onBack }: Props) {
   const [username, setUsername] = useState('')
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [itemById, setItemById] = useState<Map<string, ShopItem>>(new Map())
+  const [owned, setOwned] = useState<ShopItem[]>([])
+  const [equipped, setEquipped] = useState<Record<CosmeticType, string | null>>({
+    nameplate: null,
+    background: null,
+    avatar_frame: null,
+    username: null,
+  })
   const [stats, setStats] = useState<ProfileStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -34,21 +51,63 @@ export default function Profile({ userId, editable, onBack }: Props) {
   useEffect(() => {
     const load = async () => {
       setLoading(true)
-      const [profileRes, stepsRes] = await Promise.all([
-        supabase.from('profiles').select('username, avatar_url').eq('id', userId).single(),
+      const [profileRes, stepsRes, itemsRes, ownedRes] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select(
+            'username, avatar_url, equipped_nameplate, equipped_background, equipped_avatar_frame, equipped_username',
+          )
+          .eq('id', userId)
+          .single(),
         supabase.from('steps').select('user_id, date, count'),
+        supabase.from('shop_items').select('*'),
+        supabase.from('user_items').select('item_id').eq('user_id', userId),
       ])
+
+      const items = (itemsRes.data as ShopItem[]) ?? []
+      const byId = new Map(items.map((i) => [i.id, i]))
+      setItemById(byId)
 
       if (profileRes.data) {
         setUsername(profileRes.data.username ?? '')
         setAvatarUrl(profileRes.data.avatar_url ?? null)
+        setEquipped({
+          nameplate: profileRes.data.equipped_nameplate,
+          background: profileRes.data.equipped_background,
+          avatar_frame: profileRes.data.equipped_avatar_frame,
+          username: profileRes.data.equipped_username,
+        })
       }
+
+      const ownedIds = new Set((ownedRes.data ?? []).map((r) => r.item_id))
+      setOwned(items.filter((i) => ownedIds.has(i.id)))
+
       if (stepsRes.error) setError(stepsRes.error.message)
       else setStats(computeProfileStats(stepsRes.data ?? [], userId))
       setLoading(false)
     }
     load()
   }, [userId])
+
+  const equip = async (item: ShopItem) => {
+    setError('')
+    const { error: rpcError } = await supabase.rpc('equip_item', { p_item_id: item.id })
+    if (rpcError) {
+      setError(rpcError.message)
+      return
+    }
+    setEquipped((prev) => ({ ...prev, [item.type]: item.id }))
+  }
+
+  const unequip = async (type: CosmeticType) => {
+    setError('')
+    const { error: rpcError } = await supabase.rpc('unequip_type', { p_type: type })
+    if (rpcError) {
+      setError(rpcError.message)
+      return
+    }
+    setEquipped((prev) => ({ ...prev, [type]: null }))
+  }
 
   const saveUsername = async () => {
     setError('')
@@ -116,6 +175,13 @@ export default function Profile({ userId, editable, onBack }: Props) {
   const wrap = 'mx-auto max-w-md px-4 py-8'
   if (loading) return <p className={`${wrap} text-sm text-slate-400`}>Chargement…</p>
 
+  const cosmetics: Cosmetics = {
+    nameplate: equipped.nameplate ? itemById.get(equipped.nameplate) : undefined,
+    background: equipped.background ? itemById.get(equipped.background) : undefined,
+    avatarFrame: equipped.avatar_frame ? itemById.get(equipped.avatar_frame) : undefined,
+    username: equipped.username ? itemById.get(equipped.username) : undefined,
+  }
+
   return (
     <div className={wrap}>
       {onBack && (
@@ -130,19 +196,42 @@ export default function Profile({ userId, editable, onBack }: Props) {
         </button>
       )}
 
-      <div className="mb-6 flex flex-col items-center">
-        <Avatar url={avatarUrl} name={username} className="h-24 w-24 text-3xl" />
-        {editable ? (
-          <button
-            onClick={() => fileRef.current?.click()}
-            disabled={uploading}
-            className="mt-3 text-sm font-medium text-blue-500 transition-colors hover:text-blue-600 disabled:opacity-50"
-          >
-            {uploading ? 'Envoi…' : 'Changer la photo'}
-          </button>
-        ) : (
-          <p className="mt-3 text-xl font-bold text-slate-900 dark:text-white">{username}</p>
-        )}
+      <div className="mb-6">
+        <div
+          className={`h-24 rounded-2xl ${cosmetics.background ? '' : 'bg-slate-100 dark:bg-slate-800'}`}
+          style={cosmetics.background ? { background: cosmetics.background.value } : undefined}
+        />
+        <div className="-mt-12 flex flex-col items-center">
+          <Avatar
+            url={avatarUrl}
+            name={username}
+            frame={cosmetics.avatarFrame?.value}
+            className="h-24 w-24 border-4 border-white text-3xl dark:border-slate-950"
+          />
+          {editable ? (
+            <button
+              onClick={() => fileRef.current?.click()}
+              disabled={uploading}
+              className="mt-3 text-sm font-medium text-blue-500 transition-colors hover:text-blue-600 disabled:opacity-50"
+            >
+              {uploading ? 'Envoi…' : 'Changer la photo'}
+            </button>
+          ) : (
+            <>
+              <p
+                className="mt-3 text-xl font-bold text-slate-900 dark:text-white"
+                style={usernameStyle(cosmetics.username)}
+              >
+                {username}
+              </p>
+              {cosmetics.username?.title && (
+                <span className="mt-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                  {cosmetics.username.title}
+                </span>
+              )}
+            </>
+          )}
+        </div>
         <input
           ref={fileRef}
           type="file"
@@ -172,6 +261,60 @@ export default function Profile({ userId, editable, onBack }: Props) {
           </div>
           {message && <p className="mt-3 text-sm text-green-600 dark:text-green-400">{message}</p>}
           {error && <p className="mt-3 text-sm text-red-500">{error}</p>}
+
+          <h2 className="mb-3 mt-8 text-lg font-semibold text-slate-800 dark:text-slate-100">
+            Mes cosmétiques
+          </h2>
+          {owned.length === 0 ? (
+            <p className="text-sm text-slate-400">
+              Aucun cosmétique
+            </p>
+          ) : (
+            COSMETIC_ORDER.map((type) => {
+              const group = owned.filter((i) => i.type === type)
+              if (group.length === 0) return null
+              return (
+                <div key={type} className="mb-4">
+                  <h3 className="mb-2 text-sm font-medium text-slate-500 dark:text-slate-400">
+                    {COSMETIC_LABELS[type]}
+                  </h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    {group.map((item) => {
+                      const isEquipped = equipped[type] === item.id
+                      return (
+                        <div
+                          key={item.id}
+                          className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+                        >
+                          <div className="flex h-10 items-center justify-center">
+                            <ItemPreview item={item} />
+                          </div>
+                          <span className="truncate text-sm font-medium text-slate-700 dark:text-slate-200">
+                            {item.name}
+                          </span>
+                          {isEquipped ? (
+                            <button
+                              onClick={() => unequip(type)}
+                              className="rounded-lg border border-blue-300 px-2 py-1.5 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-50 dark:border-blue-500/40 dark:text-blue-300 dark:hover:bg-blue-500/10"
+                            >
+                              Équipé · retirer
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => equip(item)}
+                              className="rounded-lg bg-blue-500 px-2 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-600"
+                            >
+                              Équiper
+                            </button>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })
+          )}
         </>
       )}
 

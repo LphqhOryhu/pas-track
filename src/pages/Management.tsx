@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { todayISO, formatDayLabel } from '../lib/date'
 import Avatar from '../components/Avatar'
+import ShopManager from '../components/ShopManager'
 import type { Profile, StepEntry } from '../lib/types'
 
 export default function Management() {
@@ -10,6 +11,7 @@ export default function Management() {
   const [entries, setEntries] = useState<StepEntry[]>([])
   const [date, setDate] = useState(todayISO())
   const [count, setCount] = useState('')
+  const [coinsInput, setCoinsInput] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
 
@@ -17,7 +19,7 @@ export default function Management() {
     const loadUsers = async () => {
       const { data, error: fetchError } = await supabase
         .from('profiles')
-        .select('id, username, avatar_url, role')
+        .select('id, username, avatar_url, role, coins')
         .order('username')
 
       if (fetchError) setError(fetchError.message)
@@ -44,7 +46,34 @@ export default function Management() {
     setError('')
     setDate(todayISO())
     setCount('')
+    setCoinsInput(String(user.coins))
     loadEntries(user.id)
+  }
+
+  const saveCoins = async () => {
+    if (!selected) return
+    setError('')
+    const value = Number(coinsInput)
+    if (coinsInput === '' || Number.isNaN(value) || value < 0) {
+      setError('Montant de pièces invalide')
+      return
+    }
+
+    const { data, error: rpcError } = await supabase.rpc('admin_set_coins', {
+      p_user_id: selected.id,
+      p_coins: value,
+    })
+    if (rpcError) {
+      setError(rpcError.message)
+      return
+    }
+
+    const newBalance = typeof data === 'number' ? data : value
+    setSelected({ ...selected, coins: newBalance })
+    setUsers((prev) =>
+      prev.map((u) => (u.id === selected.id ? { ...u, coins: newBalance } : u)),
+    )
+    setCoinsInput(String(newBalance))
   }
 
   const saveEntry = async () => {
@@ -112,6 +141,9 @@ export default function Management() {
               <span className="flex-1 truncate font-medium text-slate-700 dark:text-slate-200">
                 {user.username}
               </span>
+              <span className="text-xs font-semibold text-amber-600 dark:text-amber-300">
+                {user.coins.toLocaleString('fr-FR')} pièces
+              </span>
               {user.role === 'admin' && (
                 <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">
                   admin
@@ -124,6 +156,27 @@ export default function Management() {
 
       {selected && (
         <section>
+          <h2 className="mb-3 text-lg font-semibold text-slate-800 dark:text-slate-100">
+            Pièces de {selected.username}
+          </h2>
+          <div className="mb-6 flex gap-2">
+            <input
+              type="number"
+              min="0"
+              value={coinsInput}
+              onChange={(e) => setCoinsInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && saveCoins()}
+              placeholder="Solde de pièces"
+              className="no-spinner w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-blue-400 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+            />
+            <button
+              onClick={saveCoins}
+              className="shrink-0 rounded-xl bg-amber-500 px-4 py-2.5 font-medium text-white transition-colors hover:bg-amber-600"
+            >
+              Définir
+            </button>
+          </div>
+
           <h2 className="mb-3 text-lg font-semibold text-slate-800 dark:text-slate-100">
             Pas de {selected.username}
           </h2>
@@ -189,6 +242,8 @@ export default function Management() {
           </ul>
         </section>
       )}
+
+      <ShopManager />
     </div>
   )
 }

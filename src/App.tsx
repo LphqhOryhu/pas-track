@@ -4,6 +4,7 @@ import { supabase } from './lib/supabase'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Profile from './pages/Profile'
+import Shop from './pages/Shop'
 import Management from './pages/Management'
 import Header, { type Theme, type View } from './components/Header'
 
@@ -17,6 +18,8 @@ export default function App() {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [coins, setCoins] = useState(0)
+  const [questRefresh, setQuestRefresh] = useState(0)
   const [view, setView] = useState<View>('home')
   const [viewedUserId, setViewedUserId] = useState('')
   const [profileHasBack, setProfileHasBack] = useState(false)
@@ -44,14 +47,18 @@ export default function App() {
   useEffect(() => {
     if (!session) {
       setIsAdmin(false)
+      setCoins(0)
       return
     }
     supabase
       .from('profiles')
-      .select('role')
+      .select('role, coins')
       .eq('id', session.user.id)
       .single()
-      .then(({ data }) => setIsAdmin(data?.role === 'admin'))
+      .then(({ data }) => {
+        setIsAdmin(data?.role === 'admin')
+        setCoins(data?.coins ?? 0)
+      })
   }, [session])
 
   const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))
@@ -88,8 +95,13 @@ export default function App() {
         />
       )
     }
+    if (view === 'shop') {
+      return <Shop userId={session.user.id} coins={coins} onCoinsChange={setCoins} />
+    }
     if (view === 'management' && isAdmin) return <Management />
-    return <Dashboard onViewUser={viewUser} />
+    return (
+      <Dashboard onViewUser={viewUser} onStepsChange={() => setQuestRefresh((n) => n + 1)} />
+    )
   }
 
   return (
@@ -97,6 +109,9 @@ export default function App() {
       <Header
         session={session}
         isAdmin={isAdmin}
+        coins={coins}
+        questRefresh={questRefresh}
+        onCoinsChange={setCoins}
         theme={theme}
         onToggleTheme={toggleTheme}
         view={view}

@@ -1,13 +1,17 @@
 import type { ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
+import QuestsMenu from './QuestsMenu'
 
-export type View = 'home' | 'profile' | 'management'
+export type View = 'home' | 'profile' | 'shop' | 'management'
 export type Theme = 'light' | 'dark'
 
 interface Props {
   session: Session | null
   isAdmin: boolean
+  coins: number
+  questRefresh: number
+  onCoinsChange: (coins: number) => void
   theme: Theme
   onToggleTheme: () => void
   view: View
@@ -53,6 +57,9 @@ function NavButton({
 export default function Header({
   session,
   isAdmin,
+  coins,
+  questRefresh,
+  onCoinsChange,
   theme,
   onToggleTheme,
   view,
@@ -73,6 +80,14 @@ export default function Header({
         </button>
 
         <div className="flex items-center gap-1">
+          {session && (
+            <QuestsMenu
+              userId={session.user.id}
+              coins={coins}
+              refreshToken={questRefresh}
+              onCoinsChange={onCoinsChange}
+            />
+          )}
           <button
             onClick={onToggleTheme}
             aria-label="Changer de thème"
@@ -85,6 +100,9 @@ export default function Header({
             <>
               <NavButton active={view === 'profile'} onClick={() => onNavigate('profile')}>
                 Profil
+              </NavButton>
+              <NavButton active={view === 'shop'} onClick={() => onNavigate('shop')}>
+                Boutique
               </NavButton>
               {isAdmin && (
                 <NavButton active={view === 'management'} onClick={() => onNavigate('management')}>

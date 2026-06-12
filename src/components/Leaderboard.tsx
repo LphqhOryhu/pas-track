@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { periodStartISO } from '../lib/date'
+import { resolveCosmetics, usernameStyle, type Cosmetics, type ShopItem } from '../lib/cosmetics'
 import type { LeaderboardPeriod, LeaderboardRow } from '../lib/types'
 import Avatar from './Avatar'
 
@@ -12,10 +13,11 @@ const PERIODS: { value: LeaderboardPeriod; label: string }[] = [
 
 interface Props {
   currentUserId: string
-  /** Incrémenté par le parent pour forcer un rafraîchissement après une saisie. */
   refreshToken: number
   onViewUser: (userId: string) => void
 }
+
+type RankedRow = LeaderboardRow & { cosmetics: Cosmetics }
 
 /** Bordure podium pour le top 3, bordure neutre ensuite. */
 const borderStyle = (rank: number) => {
@@ -27,7 +29,7 @@ const borderStyle = (rank: number) => {
 
 export default function Leaderboard({ currentUserId, refreshToken, onViewUser }: Props) {
   const [period, setPeriod] = useState<LeaderboardPeriod>('daily')
-  const [rows, setRows] = useState<LeaderboardRow[]>([])
+  const [rows, setRows] = useState<RankedRow[]>([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -36,9 +38,14 @@ export default function Leaderboard({ currentUserId, refreshToken, onViewUser }:
     setError('')
 
     const start = periodStartISO(period)
-    const [stepsRes, profilesRes] = await Promise.all([
+    const [stepsRes, profilesRes, itemsRes] = await Promise.all([
       supabase.from('steps').select('user_id, count').gte('date', start),
-      supabase.from('profiles').select('id, username, avatar_url'),
+      supabase
+        .from('profiles')
+        .select(
+          'id, username, avatar_url, equipped_nameplate, equipped_avatar_frame, equipped_username',
+        ),
+      supabase.from('shop_items').select('*'),
     ])
 
     if (stepsRes.error || profilesRes.error) {
@@ -53,14 +60,19 @@ export default function Leaderboard({ currentUserId, refreshToken, onViewUser }:
     }
 
     const profileById = new Map((profilesRes.data ?? []).map((p) => [p.id, p]))
+    const itemById = new Map((itemsRes.data ?? []).map((i) => [i.id, i as ShopItem]))
 
-    const ranked = [...totals.entries()]
-      .map(([userId, total]) => ({
-        userId,
-        username: profileById.get(userId)?.username ?? 'Anonyme',
-        avatarUrl: profileById.get(userId)?.avatar_url ?? null,
-        total,
-      }))
+    const ranked: RankedRow[] = [...totals.entries()]
+      .map(([userId, total]) => {
+        const profile = profileById.get(userId)
+        return {
+          userId,
+          username: profile?.username ?? 'Anonyme',
+          avatarUrl: profile?.avatar_url ?? null,
+          total,
+          cosmetics: resolveCosmetics(profile ?? {}, itemById),
+        }
+      })
       .sort((a, b) => b.total - a.total)
 
     setRows(ranked)
@@ -99,27 +111,56 @@ export default function Leaderboard({ currentUserId, refreshToken, onViewUser }:
         <p className="text-sm text-slate-400">Aucune donnée sur cette période.</p>
       ) : (
         <ul className="space-y-2">
-          {rows.map((row, i) => (
-            <li key={row.userId}>
-              <button
-                onClick={() => onViewUser(row.userId)}
-                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${borderStyle(i)} ${
-                  row.userId === currentUserId
-                    ? 'bg-blue-50 dark:bg-blue-500/10'
-                    : 'bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800/60'
-                }`}
-              >
-                <Avatar url={row.avatarUrl} name={row.username} className="h-8 w-8 text-xs" />
-                <span className="flex-1 truncate font-medium text-slate-700 dark:text-slate-200">
-                  {row.username}
-                </span>
-                <span className="font-semibold text-slate-900 dark:text-white">
-                  {row.total.toLocaleString('fr-FR')}
-                  <span className="ml-1 text-sm font-normal text-slate-400">pas</span>
-                </span>
-              </button>
-            </li>
-          ))}
+          {rows.map((row, i) => {
+            const plate = row.cosmetics.nameplate
+            const bgClass = plate
+              ? ''
+              : row.userId === currentUserId
+                ? 'bg-blue-50 dark:bg-blue-500/10'
+                : 'bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800/60'
+
+            return (
+              <li key={row.userId}>
+                <button
+                  onClick={() => onViewUser(row.userId)}
+                  style={plate ? { background: plate.value } : undefined}
+                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${borderStyle(i)} ${bgClass} ${plate ? 'text-white' : ''}`}
+                >
+                  <Avatar
+                    url={row.avatarUrl}
+                    name={row.username}
+                    frame={row.cosmetics.avatarFrame?.value}
+                    className="h-8 w-8 text-xs"
+                  />
+                  <span className="flex min-w-0 flex-1 items-center gap-2">
+                    <span
+                      className="truncate font-medium"
+                      style={usernameStyle(row.cosmetics.username)}
+                    >
+                      {row.username}
+                    </span>
+                    {row.cosmetics.username?.title && (
+                      <span
+                        className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                          plate
+                            ? 'bg-white/20 text-white'
+                            : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                        }`}
+                      >
+                        {row.cosmetics.username.title}
+                      </span>
+                    )}
+                  </span>
+                  <span className={`font-semibold ${plate ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
+                    {row.total.toLocaleString('fr-FR')}
+                    <span className={`ml-1 text-sm font-normal ${plate ? 'text-white/70' : 'text-slate-400'}`}>
+                      pas
+                    </span>
+                  </span>
+                </button>
+              </li>
+            )
+          })}
         </ul>
       )}
     </section>

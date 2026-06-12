@@ -4,7 +4,13 @@ import { todayISO, formatDayLabel } from '../lib/date'
 import type { StepEntry } from '../lib/types'
 import Leaderboard from '../components/Leaderboard'
 
-export default function Dashboard({ onViewUser }: { onViewUser: (userId: string) => void }) {
+export default function Dashboard({
+  onViewUser,
+  onStepsChange,
+}: {
+  onViewUser: (userId: string) => void
+  onStepsChange: () => void
+}) {
   const [steps, setSteps] = useState('')
   const [entries, setEntries] = useState<StepEntry[]>([])
   const [userId, setUserId] = useState('')
@@ -56,6 +62,7 @@ export default function Dashboard({ onViewUser }: { onViewUser: (userId: string)
     setSteps('')
     await fetchSteps(userId)
     setRefreshToken((t) => t + 1)
+    onStepsChange()
   }
 
   const deleteEntry = async (id: string) => {
@@ -67,6 +74,7 @@ export default function Dashboard({ onViewUser }: { onViewUser: (userId: string)
     }
     await fetchSteps(userId)
     setRefreshToken((t) => t + 1)
+    onStepsChange()
   }
 
   return (

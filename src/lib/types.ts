@@ -12,6 +12,7 @@ export interface Profile {
   username: string
   avatar_url: string | null
   role: UserRole
+  coins: number
 }
 
 export type LeaderboardPeriod = 'daily' | 'weekly' | 'monthly'

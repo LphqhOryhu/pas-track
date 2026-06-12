@@ -25,3 +25,6 @@ dev-dist
 *.sw?
 
 .env
+
+# Backups de base de données (peuvent contenir des données sensibles)
+*-backup-*.sql
